@@ -267,6 +267,54 @@ async def predict_c13(input_data: MoleculeInput):
     """
     return await _predict_nmr_generic(input_data.smiles, "13C")
 
+@app.post("/api/safety/analyze")
+async def analyze_safety(input_data: MoleculeInput):
+    """
+    Analyzes molecule for safety hazards using RDKit alerts and AI.
+    """
+    alerts = []
+    
+    # 1. RDKit Structural Alerts (Basic Set)
+    try:
+        mol = Chem.MolFromSmiles(input_data.smiles)
+        if mol:
+            # Explosive/Reactive patterns
+            if mol.HasSubstructMatch(Chem.MolFromSmarts("[N+](=O)[O-]")): alerts.append("Nitro Group (Potential Explosive)")
+            if mol.HasSubstructMatch(Chem.MolFromSmarts("N=[N+]=[N-]")): alerts.append("Azide (Explosive)")
+            if mol.HasSubstructMatch(Chem.MolFromSmarts("NN")): alerts.append("Hydrazine Derivative (Toxic/Reactive)")
+            if mol.HasSubstructMatch(Chem.MolFromSmarts("[O,N]-[O,N]")): alerts.append("Peroxide/N-O bond (Reactive)")
+            if mol.HasSubstructMatch(Chem.MolFromSmarts("C#N")): alerts.append("Nitrile (Toxic)")
+            if mol.HasSubstructMatch(Chem.MolFromSmarts("C(=O)H")): alerts.append("Aldehyde (Reactive)")
+    except:
+        pass
+
+    # 2. AI Safety Assessment
+    ghs_info = {}
+    if llm_service.gemini_model or llm_service.openai_client:
+        prompt = f"""
+        Act as a Chemical Safety Officer. Analyze the molecule with SMILES: "{input_data.smiles}".
+        Provide a JSON object with:
+        - "ghs_pictograms": List of applicable GHS pictogram names (e.g., ["Flame", "Skull", "Corrosive", "Health Hazard", "Exclamation"]).
+        - "signal_word": "Danger" or "Warning".
+        - "hazard_statements": List of short H-statements (e.g., "Highly flammable liquid").
+        - "precautionary_summary": A concise 1-sentence summary of handling precautions.
+        - "ppe": List of required PPE (e.g., "Gloves", "Goggles").
+        
+        Return ONLY the JSON object.
+        """
+        try:
+            response_text = llm_service.generate_response(prompt, provider="gemini")
+            response_text = response_text.replace("```json", "").replace("```", "").strip()
+            import json
+            ghs_info = json.loads(response_text)
+        except Exception as e:
+            ghs_info = {"error": str(e)}
+
+    return {
+        "structural_alerts": alerts,
+        "ghs": ghs_info
+    }
+
 async def _predict_nmr_generic(smiles: str, nucleus: str):
     if not llm_service.gemini_model and not llm_service.openai_client:
         return {"error": "AI service unavailable"}

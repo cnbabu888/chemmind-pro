@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Save, Maximize2, Minimize2, ChevronDown, Move } from 'lucide-react';
+import { X, Save, Maximize2, Minimize2, ChevronDown, Move, Shield } from 'lucide-react';
 import { Editor } from 'ketcher-react';
 import { Ketcher } from 'ketcher-core';
 import 'ketcher-react/dist/index.css';
@@ -10,6 +10,8 @@ interface StructureEditorProps {
     onSave: (smiles: string) => void;
     onClose: () => void;
 }
+
+import SafetyPanel from './SafetyPanel';
 
 const StructureEditor: React.FC<StructureEditorProps> = ({ initialSmiles = '', onSave, onClose }) => {
     const [ketcher, setKetcher] = useState<Ketcher | null>(null);
@@ -160,6 +162,32 @@ const StructureEditor: React.FC<StructureEditorProps> = ({ initialSmiles = '', o
     const [showNMR, setShowNMR] = useState(false);
     const [nmrData, setNmrData] = useState<any>(null);
     const [nmrType, setNmrType] = useState<'1H' | '13C'>('1H');
+
+    // Safety Panel State
+    const [showSafety, setShowSafety] = useState(false);
+    const [safetyData, setSafetyData] = useState<any>(null);
+
+    const handleSafetyCheck = async () => {
+        if (!ketcher) return;
+        setIsLoading(true);
+        try {
+            const smiles = await ketcher.getSmiles();
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+            const res = await fetch(`${apiUrl}/api/safety/analyze`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ smiles })
+            });
+            const data = await res.json();
+            setSafetyData(data);
+            setShowSafety(true);
+        } catch (e) {
+            console.error("Safety check failed", e);
+            alert("Could not analyze safety.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleStructureAction = async (action: string) => {
         setActiveMenu(null);
@@ -443,35 +471,40 @@ const StructureEditor: React.FC<StructureEditorProps> = ({ initialSmiles = '', o
                         <input
                             type="text"
                             value={nameInput}
-                            onChange={(e) => setNameInput(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleNameLoad()}
-                            className="text-[11px] outline-none w-48 text-slate-700 placeholder-slate-400 border-none h-full"
-                            placeholder="Type name (e.g. Aspirin)..."
+                            readOnly
+                            placeholder="Structure Name"
+                            className="text-[11px] w-40 outline-none bg-transparent text-slate-600 cursor-default"
                         />
-                        <div className="h-4 w-[1px] bg-slate-200 mx-1"></div>
-                        <button onClick={handleNameLoad} disabled={isResolving} className="text-[10px] text-slate-600 hover:text-blue-600 px-1 font-medium">
-                            {isResolving ? '...' : 'Load'}
-                        </button>
-                        <button onClick={handleStructureToName} className="text-[10px] text-slate-600 hover:text-blue-600 px-1 font-medium border-l border-slate-200 pl-2">
-                            Get Name
-                        </button>
                     </div>
 
-                    <div className="flex-1"></div>
+                    <div className="h-4 w-[1px] bg-[#dcdcdc]"></div>
 
-                    <button
-                        onClick={() => setShowAnalysis(!showAnalysis)}
-                        className={`text-[10px] px-2 py-0.5 border rounded-[2px] ${showAnalysis ? 'bg-[#cce8ff] border-[#99d1ff] text-[#005a9e]' : 'bg-white border-[#bfbfbf] text-slate-700'} hover:bg-[#e5f1fb]`}
-                    >
-                        Analysis Window
-                    </button>
-
-                    <button
-                        onClick={handleSaveRequest}
-                        className="text-[10px] font-semibold bg-[#0078d4] text-white px-3 py-0.5 rounded-[2px] hover:bg-[#106ebe] shadow-sm"
-                    >
-                        Transfer Structure
-                    </button>
+                    {/* Quick Tools */}
+                    <div className="flex items-center space-x-1">
+                        <button
+                            onClick={() => handleStructureAction('cleanup')}
+                            className="p-1 hover:bg-[#e5f1fb] hover:border-[#0078d4] border border-transparent rounded-[2px]"
+                            title="Clean Up Structure (Ctrl+Shift+K)"
+                        >
+                            <span className="text-[11px] font-serif italic font-bold text-slate-700">2D</span>
+                        </button>
+                        <button
+                            onClick={() => handleStructureAction('aromatize')}
+                            className="p-1 hover:bg-[#e5f1fb] hover:border-[#0078d4] border border-transparent rounded-[2px]"
+                            title="Aromatize"
+                        >
+                            <div className="w-4 h-4 border border-slate-600 rounded-full flex items-center justify-center">
+                                <div className="w-2 h-2 border border-slate-600 rounded-full"></div>
+                            </div>
+                        </button>
+                        <button
+                            onClick={handleSafetyCheck}
+                            className="p-1 hover:bg-red-50 hover:border-red-200 border border-transparent rounded-[2px] group"
+                            title="Check Safety & Toxicity"
+                        >
+                            <Shield className="h-4 w-4 text-slate-500 group-hover:text-red-600" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Main Content Area - 3 Column Layout */}
@@ -520,6 +553,11 @@ const StructureEditor: React.FC<StructureEditorProps> = ({ initialSmiles = '', o
                                     </div>
                                 </div>
                             </Draggable>
+                        )}
+
+                        {/* Safety Panel */}
+                        {showSafety && safetyData && (
+                            <SafetyPanel data={safetyData} onClose={() => setShowSafety(false)} />
                         )}
 
                         {/* NMR Prediction Modal */}

@@ -1,44 +1,27 @@
-# Deployment Instructions for ChemMind
+# How to Upload ChemMind to GitHub
 
-ChemMind is containerized using Docker and Docker Compose for easy deployment.
+Since this is a local project, you need to create a repository on GitHub and push your code to it.
 
-## Prerequisites
--   [Docker](https://docs.docker.com/get-docker/) installed.
--   [Docker Compose](https://docs.docker.com/compose/install/) installed.
--   A valid [Google Gemini API Key](https://ai.google.dev/).
+## Step 1: Create a New Repository
+1.  Go to **[https://github.com/new](https://github.com/new)**.
+2.  Enter a repository name (e.g., `chemmind-pro`).
+3.  **Do not** initialize with README, .gitignore, or License (we already have them).
+4.  Click **Create repository**.
 
-## Setup & Run
+## Step 2: Push Your Code
+Copy the commands from the "…or push an existing repository from the command line" section, or use the ones below.
 
-1.  **Navigate to the project root**:
-    ```bash
-    cd chemmind
-    ```
+Run these commands in your terminal (inside the `chemmind` folder):
 
-2.  **Set your API Key**:
-    You can export it as an environment variable:
-    ```bash
-    export GEMINI_API_KEY="your_actual_api_key_here"
-    ```
-    *Alternatively, you can create a `.env` file in the root directory:*
-    ```env
-    GEMINI_API_KEY=your_actual_api_key_here
-    ```
+```bash
+# 1. Link your local repo to the remote GitHub repo
+git remote add origin https://github.com/YOUR_USERNAME/chemmind-pro.git
 
-3.  **Build and Run**:
-    ```bash
-    docker-compose up --build
-    ```
-    *This may take a few minutes the first time as it builds the frontend and backend images.*
+# 2. Rename the branch to main (if not already)
+git branch -M main
 
-4.  **Access the Application**:
-    Open your browser and navigate to:
-    [http://localhost:3000](http://localhost:3000)
+# 3. Push your code
+git push -u origin main
+```
 
-## Architecture
--   **Frontend**: Next.js app running on port `3000`.
--   **Backend**: FastAPI app running on port `8000`.
--   **Communication**: The frontend communicates with the backend via `http://localhost:8000` (browser-side).
-
-## Troubleshooting
--   **"AI service unavailable"**: Ensure `GEMINI_API_KEY` is set correctly in the backend container. Check logs with `docker-compose logs backend`.
--   **CORS Errors**: If accessing from a different machine, update `NEXT_PUBLIC_API_URL` in `docker-compose.yml` and CORS settings in `backend/main.py`.
+> **Note**: You will need to replace `YOUR_USERNAME` and `chemmind-pro` with your actual GitHub username and repository name.
