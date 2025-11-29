@@ -207,51 +207,9 @@ async def structure_to_name(input_data: MoleculeInput):
         return {"error": "Could not generate name"}
     except Exception as e:
         return {"error": str(e)}
-@app.post("/api/molecule/structure_to_name")
-async def structure_to_name(data: MoleculeInput):
-    """
-    Converts SMILES to IUPAC name using LLM.
-    """
-    if not llm_service.gemini_model and not llm_service.openai_client:
-        return {"error": "AI service unavailable"}
-    
-    prompt = f"""
-    Give the preferred IUPAC name for the molecule with SMILES: "{data.smiles}".
-    Return ONLY the name. No markdown, no explanation.
-    """
-    try:
-        name = llm_service.generate_response(prompt, provider="gemini")
-        return {"name": name.strip()}
-    except Exception as e:
-        return {"error": str(e)}
 
-@app.post("/api/molecule/name_to_structure")
-async def name_to_structure(request: NameToStructureRequest):
-    """
-    Converts chemical name to SMILES using LLM + Cache.
-    """
-    # 1. Check Cache
-    normalized_name = request.name.lower().strip()
-    if normalized_name in COMMON_MOLECULES:
-        return {"smiles": COMMON_MOLECULES[normalized_name]}
 
-    # 2. Use LLM
-    if not llm_service.gemini_model and not llm_service.openai_client:
-        return {"error": "AI service unavailable"}
-    
-    prompt = f"""
-    Give the SMILES string for the chemical name: "{request.name}".
-    Return ONLY the SMILES string. No markdown, no explanation.
-    """
-    try:
-        smiles = llm_service.generate_response(prompt, provider="gemini")
-        # Basic validation: check if it looks like SMILES (not perfect)
-        smiles = smiles.strip()
-        if " " in smiles or len(smiles) < 1:
-             return {"error": "Could not generate name"}
-        return {"smiles": smiles}
-    except Exception as e:
-        return {"error": str(e)}
+
 
 @app.post("/api/molecule/predict_nmr")
 async def predict_nmr(input_data: MoleculeInput):
@@ -267,53 +225,7 @@ async def predict_c13(input_data: MoleculeInput):
     """
     return await _predict_nmr_generic(input_data.smiles, "13C")
 
-@app.post("/api/safety/analyze")
-async def analyze_safety(input_data: MoleculeInput):
-    """
-    Analyzes molecule for safety hazards using RDKit alerts and AI.
-    """
-    alerts = []
-    
-    # 1. RDKit Structural Alerts (Basic Set)
-    try:
-        mol = Chem.MolFromSmiles(input_data.smiles)
-        if mol:
-            # Explosive/Reactive patterns
-            if mol.HasSubstructMatch(Chem.MolFromSmarts("[N+](=O)[O-]")): alerts.append("Nitro Group (Potential Explosive)")
-            if mol.HasSubstructMatch(Chem.MolFromSmarts("N=[N+]=[N-]")): alerts.append("Azide (Explosive)")
-            if mol.HasSubstructMatch(Chem.MolFromSmarts("NN")): alerts.append("Hydrazine Derivative (Toxic/Reactive)")
-            if mol.HasSubstructMatch(Chem.MolFromSmarts("[O,N]-[O,N]")): alerts.append("Peroxide/N-O bond (Reactive)")
-            if mol.HasSubstructMatch(Chem.MolFromSmarts("C#N")): alerts.append("Nitrile (Toxic)")
-            if mol.HasSubstructMatch(Chem.MolFromSmarts("C(=O)H")): alerts.append("Aldehyde (Reactive)")
-    except:
-        pass
 
-    # 2. AI Safety Assessment
-    ghs_info = {}
-    if llm_service.gemini_model or llm_service.openai_client:
-        prompt = f"""
-        Act as a Chemical Safety Officer. Analyze the molecule with SMILES: "{input_data.smiles}".
-        Provide a JSON object with:
-        - "ghs_pictograms": List of applicable GHS pictogram names (e.g., ["Flame", "Skull", "Corrosive", "Health Hazard", "Exclamation"]).
-        - "signal_word": "Danger" or "Warning".
-        - "hazard_statements": List of short H-statements (e.g., "Highly flammable liquid").
-        - "precautionary_summary": A concise 1-sentence summary of handling precautions.
-        - "ppe": List of required PPE (e.g., "Gloves", "Goggles").
-        
-        Return ONLY the JSON object.
-        """
-        try:
-            response_text = llm_service.generate_response(prompt, provider="gemini")
-            response_text = response_text.replace("```json", "").replace("```", "").strip()
-            import json
-            ghs_info = json.loads(response_text)
-        except Exception as e:
-            ghs_info = {"error": str(e)}
-
-    return {
-        "structural_alerts": alerts,
-        "ghs": ghs_info
-    }
 
 async def _predict_nmr_generic(smiles: str, nucleus: str):
     if not llm_service.gemini_model and not llm_service.openai_client:
@@ -339,24 +251,7 @@ async def _predict_nmr_generic(smiles: str, nucleus: str):
     except Exception as e:
         return {"error": str(e)}
 
-@app.post("/api/molecule/3d")
-def get_3d_structure(data: MoleculeInput):
-    """
-    Generates 3D coordinates for a molecule.
-    """
-    try:
-        mol = Chem.MolFromSmiles(data.smiles)
-        if not mol:
-            return {"error": "Invalid SMILES"}
-        
-        mol_h = Chem.AddHs(mol)
-        Chem.AllChem.EmbedMolecule(mol_h, randomSeed=42)
-        Chem.AllChem.MMFFOptimizeMolecule(mol_h)
-        
-        # Return MolBlock
-        return {"molblock": Chem.MolToMolBlock(mol_h)}
-    except Exception as e:
-        return {"error": str(e)}
+
 
 class AnalyzeRequest(BaseModel):
     prompt: str

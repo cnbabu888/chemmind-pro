@@ -16,7 +16,9 @@ interface SafetyData {
     handling: string[];
     ppe: string[];
     signal_word: string;
+    structural_alerts?: string[];
 }
+
 
 interface SafetyDashboardProps {
     smiles: string;
@@ -100,6 +102,23 @@ const SafetyDashboard: React.FC<SafetyDashboardProps> = ({ smiles }) => {
                     )}
                 </div>
             </div>
+
+            {/* Structural Alerts Banner */}
+            {data.structural_alerts && data.structural_alerts.length > 0 && (
+                <div className="bg-orange-50 px-4 py-2 border-b border-orange-100 flex items-start">
+                    <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 mr-2 flex-shrink-0" />
+                    <div>
+                        <span className="text-xs font-bold text-orange-800 block">Structural Alerts Detected:</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                            {data.structural_alerts.map((alert, idx) => (
+                                <span key={idx} className="text-[10px] bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded border border-orange-200">
+                                    {alert}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="p-4 overflow-y-auto flex-1 space-y-4">
                 {/* Hazards */}

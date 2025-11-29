@@ -10,7 +10,7 @@ class OptimizationEngine:
         """
         Suggests optimal conditions for the given reaction using AI.
         """
-        if not llm_service.model:
+        if not llm_service.gemini_model and not llm_service.openai_client:
             return self._get_mock_response(reactants_smiles)
 
         prompt = f"""

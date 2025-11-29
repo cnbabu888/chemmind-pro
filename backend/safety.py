@@ -1,6 +1,7 @@
 import json
 from typing import Dict, Any
 from llm_service import llm_service
+from rdkit import Chem
 
 class SafetyEngine:
     def __init__(self):
@@ -11,8 +12,24 @@ class SafetyEngine:
         Analyzes the safety profile of a molecule using AI.
         Returns toxicity, GHS hazards, and handling precautions.
         """
-        if not llm_service.model:
-            return self._get_mock_response(smiles)
+        alerts = []
+        try:
+            mol = Chem.MolFromSmiles(smiles)
+            if mol:
+                # Explosive/Reactive patterns
+                if mol.HasSubstructMatch(Chem.MolFromSmarts("[N+](=O)[O-]")): alerts.append("Nitro Group (Potential Explosive)")
+                if mol.HasSubstructMatch(Chem.MolFromSmarts("N=[N+]=[N-]")): alerts.append("Azide (Explosive)")
+                if mol.HasSubstructMatch(Chem.MolFromSmarts("NN")): alerts.append("Hydrazine Derivative (Toxic/Reactive)")
+                if mol.HasSubstructMatch(Chem.MolFromSmarts("[O,N]-[O,N]")): alerts.append("Peroxide/N-O bond (Reactive)")
+                if mol.HasSubstructMatch(Chem.MolFromSmarts("C#N")): alerts.append("Nitrile (Toxic)")
+                if mol.HasSubstructMatch(Chem.MolFromSmarts("C(=O)H")): alerts.append("Aldehyde (Reactive)")
+        except:
+            pass
+
+        if not llm_service.gemini_model and not llm_service.openai_client:
+            mock = self._get_mock_response(smiles)
+            mock["structural_alerts"] = alerts
+            return mock
 
         prompt = f"""
         Act as an expert chemical safety officer. Analyze the safety profile of the molecule with SMILES: "{smiles}".
@@ -47,6 +64,7 @@ class SafetyEngine:
             
             cleaned_text = response_text.replace("```json", "").replace("```", "").strip()
             data = json.loads(cleaned_text)
+            data["structural_alerts"] = alerts
             return data
 
         except Exception as e:

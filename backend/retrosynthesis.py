@@ -11,7 +11,7 @@ class RetrosynthesisEngine:
         """
         Predicts a synthetic route for the given SMILES using AI.
         """
-        if not llm_service.model:
+        if not llm_service.gemini_model and not llm_service.openai_client:
             return self._get_mock_response(target_smiles)
 
         prompt = f"""
